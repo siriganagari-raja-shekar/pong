@@ -6,8 +6,7 @@ class PlayerNum(Enum):
     TWO = 2
 
 
-player_key_mappings = {
-        PlayerNum.ONE : { "left": pygame.K_a, "right": pygame.K_d},
+PLAYER_KEY_BINDINGS = { 
+    PlayerNum.ONE : { "left": pygame.K_a, "right": pygame.K_d}, 
     PlayerNum.TWO : { "left": pygame.K_LEFT, "right": pygame.K_RIGHT}
-
 }

@@ -1,5 +1,5 @@
-from player_key_mappings import PlayerNum
-from player_key_mappings import player_key_mappings
+from .shared_resources import PlayerNum
+from .shared_resources import PLAYER_KEY_BINDINGS
 import pygame
 
 class Player:
@@ -15,7 +15,7 @@ class Player:
         self.border_radius = 10
         self.isMoving = False
         self.direction = ""
-        self.key_mappings = player_key_mappings[player_num]
+        self.key_mappings = PLAYER_KEY_BINDINGS[player_num]
         self.rect = pygame.Rect(window_width//2 - self.width//2, heading_buffer + 2 if player_num == PlayerNum.ONE else window_height - self.height, self.width, self.height)
         self.player_num = player_num
         self.color = (255, 0, 0) if player_num is PlayerNum.ONE else (0, 0, 255)

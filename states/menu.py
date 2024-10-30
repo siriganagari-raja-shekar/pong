@@ -1,10 +1,10 @@
 import pygame
-from base import BaseState
+from .base import BaseState
 
 class Menu(BaseState):
 
-    def __init__(self):
-        BaseState.__init__(self)
+    def __init__(self, **settings):
+        BaseState.__init__(self, **settings)
         self.next = "game"
 
     def cleanup(self):
@@ -14,7 +14,7 @@ class Menu(BaseState):
         pass
 
     def get_event(self, event):
-        if event == pygame.KEYDOWN:
+        if event.type == pygame.KEYDOWN:
             print("Menu screen key down")
         elif event.type == pygame.MOUSEBUTTONDOWN:
             self.done = True

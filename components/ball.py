@@ -1,5 +1,6 @@
 import pygame
-from player import Player, PlayerNum
+from .player import Player
+from .shared_resources import PlayerNum
 import time
 import threading
 
