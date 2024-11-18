@@ -9,22 +9,24 @@ class Game(BaseState):
 
     def __init__(self, **settings):
         BaseState.__init__(self, **settings)
-        self.next = "menu"
+        self.next = "end_game"
         self.heading_buffer = 70
         self.players = []
         self.ball = None
         self.score = dict()
+        self.persist = dict()
 
     def cleanup(self):
-        self.__resetGame() 
+        return self.persist
 
-    def startup(self):
+    def startup(self, persist):
         self.__resetGame()
 
     def __resetGame(self):
         self.players = [Player(1, self.size[0], self.size[1], PlayerNum.ONE, self.heading_buffer), Player(2, self.size[0], self.size[1], PlayerNum.TWO, self.heading_buffer)]
         self.ball = Ball(self.size[0], self.heading_buffer, self.size[1], self.players[random.randint(0, 1)])
         self.score = { player.id: 0 for player in self.players }
+        self.persist = dict()
 
     def get_event(self, event):
         if event.type == pygame.KEYDOWN:
@@ -71,6 +73,7 @@ class Game(BaseState):
                     self.done = True
                 winningPlayer = self.players[0] if self.ball.last_touched_player_id == self.players[0].id else self.players[1]
                 self.ball = Ball(self.size[0], self.heading_buffer, self.size[1], winningPlayer)
+                self.persist["winning_player"] = 1 if winningPlayer.player_num == PlayerNum.ONE else 2
 
             for player in self.players:
                 if self.ball.getRect().colliderect(player.getRect()):

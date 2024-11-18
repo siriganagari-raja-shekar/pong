@@ -1,4 +1,5 @@
 import pygame
+from states.end_game import EndGame
 from states.menu import Menu
 from states.game import Game
 import sys
@@ -22,9 +23,9 @@ class Control:
     def flip_state(self):
         self.state.done = False
         previous,self.state_name = self.state_name, self.state.next
-        self.state.cleanup()
+        persist = self.state.cleanup()
         self.state = self.state_dict[self.state_name]
-        self.state.startup()
+        self.state.startup(persist)
         self.state.previous = previous
     def update(self, dt):
         if self.state.quit:
@@ -52,7 +53,8 @@ settings = {
 app = Control(**settings)
 state_dict = {
     'menu': Menu(**settings),
-    'game': Game(**settings)
+    'game': Game(**settings),
+    'end_game': EndGame(**settings)
 }
 app.setup_states(state_dict, 'menu')
 app.main_game_loop()
