@@ -17,7 +17,7 @@ class Ball:
         self.last_touched_player_id = self.startPlayer.id
         self.isReleased = False
         self.unReleasedSpeed = pygame.Vector2(1, 0)
-        coordinator_thread = threading.Thread(target=self.speed_coordinator, args=(20,), daemon=True)
+        coordinator_thread = threading.Thread(target=self.speed_coordinator, args=(15,), daemon=True)
         coordinator_thread.start()
     
     def move(self):
