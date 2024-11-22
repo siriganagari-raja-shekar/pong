@@ -5,7 +5,7 @@ from components.shared_resources import PlayerNum
 from components.ball import Ball
 import random
 
-class Game(BaseState):
+class LocalGame(BaseState):
 
     def __init__(self, **settings):
         BaseState.__init__(self, **settings)
@@ -59,7 +59,7 @@ class Game(BaseState):
                     else:
                         player.stopMoving()
 
-    def update(self, screen, dt):
+    def update(self, dt):
 
         for player in self.players:
             player.movePlayer()
@@ -79,7 +79,6 @@ class Game(BaseState):
                 if self.ball.getRect().colliderect(player.getRect()):
                     self.ball.deflectBall(player)
 
-        self.draw(screen)
 
     def draw(self, screen):
         

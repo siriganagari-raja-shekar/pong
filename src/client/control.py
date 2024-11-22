@@ -1,7 +1,8 @@
 import pygame
-from states.end_game import EndGame
-from states.menu import Menu
-from states.game import Game
+from client.states.end_game import EndGame
+from client.states.menu import Menu
+from client.states.local_game import LocalGame
+from client.states.multiplayer_game import MultiplayerGameState
 import sys
 import os
 
@@ -32,17 +33,20 @@ class Control:
             self.done = True
         elif self.state.done:
             self.flip_state()
-        self.state.update(self.screen, dt)
+        self.state.update(dt)
     def event_loop(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.done = True
             self.state.get_event(event)
+    def draw(self, screen):
+        self.state.draw(screen)
     def main_game_loop(self):
         while not self.done:
             delta_time = self.clock.tick(self.fps)/1000.0
             self.event_loop()
             self.update(delta_time)
+            self.draw(self.screen)
             pygame.display.update()
   
 settings = {
@@ -53,7 +57,8 @@ settings = {
 app = Control(**settings)
 state_dict = {
     'menu': Menu(**settings),
-    'game': Game(**settings),
+    'game': LocalGame(**settings),
+    'multiplayer_game': MultiplayerGameState(**settings),
     'end_game': EndGame(**settings)
 }
 app.setup_states(state_dict, 'menu')
