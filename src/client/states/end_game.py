@@ -33,7 +33,7 @@ class EndGame(BaseState):
                 self.next = "menu"
                 self.done = True
 
-    def update(self, screen, dt):
+    def update(self, dt):
         pass
 
     def draw(self, screen):

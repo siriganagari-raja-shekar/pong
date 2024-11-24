@@ -11,14 +11,13 @@ class Ball:
         self.limitX = window_width
         self.limitTop = limitTop
         self.limitBottom = limitBottom
-        self.speed = pygame.Vector2(2, 2)
+        self.speed = pygame.Vector2(3, 3)
         self.startPlayer = startPlayer
         self.rect = self.getStartPos()
         self.last_touched_player_id = self.startPlayer.id
         self.isReleased = False
         self.unReleasedSpeed = pygame.Vector2(1, 0)
-        coordinator_thread = threading.Thread(target=self.speed_coordinator, args=(15,), daemon=True)
-        coordinator_thread.start()
+        self.coordinator_thread = threading.Thread(target=self.speed_coordinator, args=(10,), daemon=True)
     
     def move(self):
         if not self.isReleased:
@@ -64,7 +63,7 @@ class Ball:
     def releaseBall(self):
         self.isReleased = True
         self.deflectBall(self.startPlayer)
-
+        # self.coordinator_thread.start()
 
     def getX(self):
         return self.rect.centerx
@@ -89,8 +88,7 @@ class Ball:
             time.sleep(1)
             number_of_seconds -= 1
 
-    def increaseBallSpeed(self, countdown_thread: threading.Thread):
-        countdown_thread.join()
+    def increaseBallSpeed(self):
         if self.speed.x < 0:
             self.speed.x += -1
         else:
