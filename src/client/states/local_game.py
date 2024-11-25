@@ -17,9 +17,11 @@ class LocalGame(BaseState):
         self.ball = None
         self.score = dict()
         self.persist = dict()
-        self.player_coordinator_thread = None
-        self.ball_coordinator_thread = None
-        self.run_speed_threads = False
+        self.ball_sped_time = None
+        self.player_sped_time = None
+
+        self.ball_speed_increase_interval = 15
+        self.player_speed_increase_interval = 15
 
     def cleanup(self):
         return self.persist
@@ -32,19 +34,15 @@ class LocalGame(BaseState):
         self.ball = Ball(self.size[0], self.heading_buffer, self.size[1], self.players[random.randint(0, 1)])
         self.score = { player.id: 0 for player in self.players }
         self.persist = dict()
-        self.__resetSpeedThreads()
+        self.ball_sped_time = None
+        self.player_sped_time = None
 
-    def __resetSpeedThreads(self):
-        self.run_speed_threads = False
+    def __resetPlayerSpeeds(self):
         for player in self.players:
             player.resetPaddleSpeed()
-        self.player_coordinator_thread = threading.Thread(target=self.speed_coordinator, args=(self.increasePaddleSpeed, 15,), daemon=True)
-        self.ball_coordinator_thread = threading.Thread(target=self.speed_coordinator, args=(self.increaseBallSpeed, 15,), daemon=True) 
-    
-    def __startSpeedThreads(self):
-        self.run_speed_threads = True
-        self.player_coordinator_thread.start()
-        self.ball_coordinator_thread.start()
+        self.ball_sped_time = time.time()
+        self.player_sped_time = time.time()
+
 
     def get_event(self, event):
         if event.type == pygame.KEYDOWN:
@@ -57,7 +55,8 @@ class LocalGame(BaseState):
             
             if not self.ball.isReleased and event.key == pygame.K_SPACE:
                 self.ball.releaseBall()
-                self.__startSpeedThreads()
+                self.ball_sped_time = time.time()
+                self.player_sped_time = time.time()
 
         
         elif event.type == pygame.KEYUP:
@@ -85,7 +84,6 @@ class LocalGame(BaseState):
         self.ball.move()
 
         if self.ball.isReleased:
-        
             if self.ball.checkOutOfBounds():
                 self.score[self.ball.last_touched_player_id] += 1
                 if self.score[self.ball.last_touched_player_id] == 5:
@@ -93,12 +91,20 @@ class LocalGame(BaseState):
                 winningPlayer = self.players[0] if self.ball.last_touched_player_id == self.players[0].id else self.players[1]
                 self.ball = Ball(self.size[0], self.heading_buffer, self.size[1], winningPlayer)
                 self.persist["winning_player"] = 1 if winningPlayer.player_num == PlayerNum.ONE else 2
-                self.__resetSpeedThreads()
+                self.__resetPlayerSpeeds()
 
             for player in self.players:
                 if self.ball.getRect().colliderect(player.getRect()):
                     self.ball.deflectBall(player)
 
+            if time.time() - self.ball_sped_time >= self.ball_speed_increase_interval:
+                self.ball.increaseBallSpeed()
+                self.ball_sped_time = time.time()
+            
+            if time.time() - self.player_sped_time >= self.player_speed_increase_interval:
+                for player in self.players:
+                    player.increasePaddleSpeed()
+                self.player_sped_time = time.time()
 
     def draw(self, screen):
         
@@ -130,33 +136,3 @@ class LocalGame(BaseState):
         screen.blit(player1_score_surface, (score_position_vector[0], score_position_vector[1]))
         screen.blit(hyphen_score_surface, (score_position_vector[0] + 25, score_position_vector[1])) 
         screen.blit(player2_score_surface, (score_position_vector[0] + 70, score_position_vector[1]))
-
-
-    def countdown(self, number_of_seconds):
-        while number_of_seconds and self.run_speed_threads:
-            time.sleep(1)
-            number_of_seconds -= 1
-
-    def increasePaddleSpeed(self, countdown_thread: threading.Thread):
-        countdown_thread.join()
-        if self.run_speed_threads:
-            for player in self.players:
-                if self.run_speed_threads:
-                    player.increasePaddleSpeed()
-
-    def increaseBallSpeed(self, countdown_thread: threading.Thread):
-        countdown_thread.join()
-        if self.run_speed_threads:
-            self.ball.increaseBallSpeed()
-
-    def speed_coordinator(self, speed_function, number_of_seconds):
-
-        while self.run_speed_threads:
-            countdown_thread = threading.Thread(target=self.countdown, args=(number_of_seconds, ), daemon = True)
-            worker_thread = threading.Thread(target=speed_function, args=(countdown_thread, ), daemon=True)
-
-            countdown_thread.start()
-            worker_thread.start()
-
-            worker_thread.join()
-

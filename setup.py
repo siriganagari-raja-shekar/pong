@@ -7,6 +7,6 @@ setup(
     packages=find_packages(where="src"),  # Automatically find all packages in src/
     install_requires=[         # List of dependencies
         "pygame",
-        # other dependencies
+        "websockets"
     ],
 )

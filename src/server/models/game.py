@@ -4,6 +4,7 @@ from components.ball import Ball
 from components.shared_resources import MULTIPLAYER_KEY_BINDINGS
 import random
 import pygame
+import time
 
 class MultiplayerGame:
     def __init__(self, **settings):
@@ -16,6 +17,11 @@ class MultiplayerGame:
         self.players_joined = False
         self.done = False
         self.persist = dict()
+        self.ball_sped_time = None
+        self.player_sped_time = None
+
+        self.ball_speed_increase_interval = 15
+        self.player_speed_increase_interval = 15
 
     def create_player(self, player_num):
         if player_num == PlayerNum.ONE:
@@ -33,6 +39,8 @@ class MultiplayerGame:
     def __resetGame(self):
         self.ball = Ball(self.size[0], self.heading_buffer, self.size[1], self.players[random.randint(0, 1)])
         self.score = { player.id: 0 for player in self.players }
+        self.ball_sped_time = None
+        self.player_sped_time = None
 
     def handle_player_event(self, event, playerNum):
         for player in self.players:
@@ -51,6 +59,8 @@ class MultiplayerGame:
             if not self.ball.isReleased and event["key"] == MULTIPLAYER_KEY_BINDINGS["release"] and player.id == self.ball.last_touched_player_id:
                 self.ball.releaseBall()
                 self.ball.round_in_progress = True
+                self.ball_sped_time = time.time()
+                self.player_sped_time = time.time()
 
         
         elif event["type"] == pygame.KEYUP:
@@ -90,6 +100,16 @@ class MultiplayerGame:
             for player in self.players:
                 if self.ball.getRect().colliderect(player.getRect()):
                     self.ball.deflectBall(player)
+
+            
+            if time.time() - self.ball_sped_time >= self.ball_speed_increase_interval:
+                self.ball.increaseBallSpeed()
+                self.ball_sped_time = time.time()
+            
+            if time.time() - self.player_sped_time >= self.player_speed_increase_interval:
+                for player in self.players:
+                    player.increasePaddleSpeed()
+                self.player_sped_time = time.time()
 
     def get_players_state(self):
         player_states = []
