@@ -3,6 +3,7 @@ from client.states.end_game import EndGame
 from client.states.menu import Menu
 from client.states.local_game import LocalGame
 from client.states.multiplayer_game import MultiplayerGameState
+from client.states.input_state import JoinGameInput
 import sys
 import os
 
@@ -58,6 +59,7 @@ app = Control(**settings)
 state_dict = {
     'menu': Menu(**settings),
     'game': LocalGame(**settings),
+    'input_state': JoinGameInput(**settings),
     'multiplayer_game': MultiplayerGameState(**settings),
     'end_game': EndGame(**settings)
 }

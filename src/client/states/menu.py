@@ -33,12 +33,9 @@ class Menu(BaseState):
             elif self.option_two_rect.collidepoint(pygame.mouse.get_pos()):
                 self.next = "multiplayer_game"
                 self.done = True
-                print("Option two selected")
             elif self.option_three_rect.collidepoint(pygame.mouse.get_pos()):
-                self.next = "multiplayer_game"
-                self.persist["join_key"] = "123456"
+                self.next = "input_state"
                 self.done = True
-                print("Option three selected")
 
     def update(self, dt):
         pass

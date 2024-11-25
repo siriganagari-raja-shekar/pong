@@ -5,12 +5,14 @@ from components.player import Player
 from components.shared_resources import PlayerNum
 from components.ball import Ball
 import random
-import websockets
+from websockets.asyncio.client import connect
+from websockets.exceptions import ConnectionClosedError
 import json
 import asyncio
 import threading
 import queue
 from queue import Empty
+import inspect
 
 class MultiplayerGameState(BaseState):
 
@@ -18,22 +20,27 @@ class MultiplayerGameState(BaseState):
         BaseState.__init__(self, **settings)
         self.next = "end_game"
         self.heading_buffer = 70
+
+    def __resetGame(self):
+
+        self.next = "end_game"
         self.players = []
-        self.ball = None
         self.score = dict()
         self.persist = dict()
         self.websocket_thread = None
         self.join_key = None
         self.watch_key = None
-
         self.players_joined = False
+        self.server_connected = False
+        self.server_error = None
 
-    # Queue for sending messages to websocket
+        # Queue for sending messages to websocket
         self.outgoing_queue = queue.Queue()
         # Queue for receiving messages from websocket
         self.incoming_queue = queue.Queue()
 
     def startup(self, persist):
+        self.__resetGame()
         if persist and persist["join_key"]:
             print("Join key found. Joining game")
             self.initialize_connection(persist["join_key"])
@@ -45,16 +52,14 @@ class MultiplayerGameState(BaseState):
         """Handles the websocket connection and message processing"""
         uri = "ws://localhost:8001"
         try:
-            print("Connecting to websocket on uri")
-            async with websockets.connect(uri) as websocket:
+            async with connect(uri, ping_timeout=5, ping_interval=5) as websocket:
+                self.server_connected = True
                 event = {
                     "type": "init"
                 }
                 if join_key:
                     event["join"] = join_key
 
-                print(f"Sending event: ${event}")
-                
                 await websocket.send(json.dumps(event))
 
                 # Start a task to handle outgoing messages
@@ -66,9 +71,26 @@ class MultiplayerGameState(BaseState):
                     await self._process_message(data, join_key)
                 
                 send_task.cancel()
-                        
+        except ConnectionClosedError:
+            self.server_error = {
+                "message": "Server closed connection unexpectedly"
+            }
+            print(f"Connection closed")
+        except TimeoutError:
+            self.server_error = {
+                "message": "Server timed out"
+            }
+            print(f"Timeout error")
         except Exception as e:
+            self.server_error = {
+                "message": "Error connecting to server"
+            }
             print(f"WebSocket error: {e}")
+
+        if not self.done and not self.server_error:
+            self.server_error = {
+                "message": "Server disconnected unexpectedly"
+            }
 
     
     async def _handle_outgoing_messages(self, websocket):
@@ -97,6 +119,9 @@ class MultiplayerGameState(BaseState):
         elif data["type"] == "game_state_ended":
             self.handle_game_end(data)
         elif data["type"] == "error":
+            self.server_error = {
+                "message": data["message"]
+            }
             print(f"Server error: {data['message']}")
             return False
         return True
@@ -130,13 +155,6 @@ class MultiplayerGameState(BaseState):
 
         return self.persist
 
-
-    def __resetGame(self):
-        self.players = [Player(1, self.size[0], self.size[1], PlayerNum.ONE, self.heading_buffer), Player(2, self.size[0], self.size[1], PlayerNum.TWO, self.heading_buffer)]
-        self.ball = Ball(self.size[0], self.heading_buffer, self.size[1], self.players[random.randint(0, 1)])
-        self.score = { player.id: 0 for player in self.players }
-        self.persist = dict()
-
     def get_event(self, event):
         """
         Sends player input events to the server
@@ -144,16 +162,21 @@ class MultiplayerGameState(BaseState):
         """
 
         if event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
-            outgoing_event = {
-                "type": "player_input",
-                "input_event": {
-                    "type": event.type,
-                    "key": event.key,
-                    "keys": pygame.key.get_pressed()
+            if self.server_error:
+                if event.key == pygame.K_ESCAPE:
+                    self.done = True
+                    self.next = "menu"
+            else:
+                outgoing_event = {
+                    "type": "player_input",
+                    "input_event": {
+                        "type": event.type,
+                        "key": event.key,
+                        "keys": pygame.key.get_pressed()
+                    }
                 }
-            }
-            if self.players_joined:
-                self.outgoing_queue.put(outgoing_event)
+                if self.players_joined:
+                    self.outgoing_queue.put(outgoing_event)
 
     def update(self, dt):
         
@@ -190,7 +213,8 @@ class MultiplayerGameState(BaseState):
 
         screen.fill(black)
 
-        if self.players_joined and self.ball and self.players:
+
+        if self.players_joined and self.ball and self.players and not self.server_error:
             # Drawing players as rectangles
             for player in self.players:
                 pygame.draw.rect(screen, red if player["player_num"] == PlayerNum.ONE else blue, pygame.Rect(player["x"], player["y"], player["width"], player["height"]), border_radius=player["border_radius"])
@@ -214,9 +238,53 @@ class MultiplayerGameState(BaseState):
             screen.blit(player1_score_surface, (score_position_vector[0], score_position_vector[1]))
             screen.blit(hyphen_score_surface, (score_position_vector[0] + 25, score_position_vector[1])) 
             screen.blit(player2_score_surface, (score_position_vector[0] + 70, score_position_vector[1]))
+        
+        elif self.server_error:
+
+            medium_font = pygame.font.Font("./resources/fonts/Retro Gaming.ttf", 20)
+            small_font = pygame.font.Font("./resources/fonts/Retro Gaming.ttf", 15)
+            error_surface = medium_font.render("Error: " + self.server_error["message"], False, white)
+            error_rect = error_surface.get_rect(center=(self.size[0]//2, self.size[1]//2))
+            screen.blit(error_surface, error_rect)
+
+            # Display message to return to main menu
+            return_surface = small_font.render("Press ESC to return to menu", False, white)
+            return_rect = return_surface.get_rect(center=(self.size[0]//2, self.size[1]//2 + 50))
+            screen.blit(return_surface, return_rect)
+        
+        elif not self.server_connected:
+            # Display connecting to server message
+            medium_font = pygame.font.Font("./resources/fonts/Retro Gaming.ttf", 20)
+            small_font = pygame.font.Font("./resources/fonts/Retro Gaming.ttf", 15)
+            error_surface = medium_font.render("Connecting to server...", False, white)
+            error_rect = error_surface.get_rect(center=(self.size[0]//2, self.size[1]//2))
+            screen.blit(error_surface, error_rect)
+
         else:
-            game_font = pygame.font.Font("./resources/fonts/Retro Gaming.ttf", 25)
-            waiting_for_players_surface = game_font.render("Waiting for players...", False, white)
-            screen.blit(waiting_for_players_surface, (self.size[0]//5, self.size[1]//2))
+            # Create different font sizes
+            large_font = pygame.font.Font("./resources/fonts/Retro Gaming.ttf", 30)
+            medium_font = pygame.font.Font("./resources/fonts/Retro Gaming.ttf", 20)
+            small_font = pygame.font.Font("./resources/fonts/Retro Gaming.ttf", 15)
 
+            # Render text surfaces
+            waiting_surface = large_font.render("Waiting for players...", False, white)
+            
+            # Calculate center positions
+            screen_center_x = self.size[0] // 2
+            screen_center_y = self.size[1] // 2
+            
+            # Position waiting text
+            waiting_rect = waiting_surface.get_rect(center=(screen_center_x, screen_center_y - 50))
+            screen.blit(waiting_surface, waiting_rect)
 
+            # Display join key and instructions if available
+            if self.join_key:
+                join_key_surface = medium_font.render(f"Join Key: {self.join_key}", False, white)
+                instruction_surface = small_font.render("Share this key with other players to join!", False, white)
+                
+                # Center align join key and instruction
+                join_key_rect = join_key_surface.get_rect(center=(screen_center_x, screen_center_y + 20))
+                instruction_rect = instruction_surface.get_rect(center=(screen_center_x, screen_center_y + 70))
+                
+                screen.blit(join_key_surface, join_key_rect)
+                screen.blit(instruction_surface, instruction_rect)
